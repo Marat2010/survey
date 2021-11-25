@@ -18,6 +18,9 @@ urlpatterns = [
     path('api/v1/', include('api.urls')),
     path('admin/', admin.site.urls),
     path('__debug__/', include(debug_toolbar.urls)),
+
+    path('mytest/', include('my_test.urls')),  # For my test
+
 ]
 
 urlpatterns += doc_urls

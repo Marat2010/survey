@@ -1,18 +1,70 @@
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from .models import Survey, Question, Answer, User, UserAnswer
-from rest_framework.fields import ChoiceField
 from drf_writable_nested.serializers import WritableNestedModelSerializer
+from rest_framework.fields import ChoiceField
 
 
-# -------------   SECTION FOR SURVEY   -----------------
+# -------- ADMIN: Добавление и редактирование ответов, вопросов, опросов --------
+class AnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answer
+        fields = ('id', 'url', 'answer')
 
-class SurveyListSerializer(serializers.ModelSerializer):
+
+class QuestionSerializer(WritableNestedModelSerializer):
+    answers = AnswerSerializer(many=True)
+
+    class Meta:
+        model = Question
+        fields = ('id', 'url', 'question_text', 'type_answer', 'answers')
+
+    def to_internal_value(self, data):
+        """ Реализация возможности передавать список ответов без словаря, т.е номера 'ID' ответа,
+         т.е так [4,5,...{},..].
+         Список может состоять из словаря из ответов, так и номера 'ID' ответа.
+         Если указан 'ID' ответа, то сущестующий ответ дополняется к вопросу,
+          иначе ответ можно редактировать прямо в вопросе. """
+        print(f"====2===:  {data}")
+        answers = data.get('answers')
+
+        for i, answer in enumerate(answers):
+            if isinstance(answer, int):
+                try:
+                    answer_answer = Answer.objects.get(pk=answer).answer
+                except ObjectDoesNotExist:
+                    raise serializers.ValidationError({'answer': f' answer with id: {answer} not exist.'})
+                answers[i] = {"id": answer, "answer": answer_answer}
+        data['answers'] = answers
+        print(f"==== 4 ===:  {data}")
+        return data
+
+
+class QuestionsForSurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ('id', 'question_text',  'type_answer', 'url')
+
+
+class SurveyRetrieveSerializer(serializers.ModelSerializer):
+    questions = QuestionsForSurveySerializer(many=True)
+
     class Meta:
         model = Survey
-        fields = ('id', 'name', 'date_start', 'date_end', 'description')
+        fields = ('id', 'name', 'date_start', 'date_end', 'description', 'questions')
 
 
-# ---------------------------------------
+class SurveySerializer(WritableNestedModelSerializer):
+
+    class Meta:
+        model = Survey
+        fields = ('id', 'url', 'name', 'date_start', 'date_end', 'description')
+        # fields = ('id', 'url', 'name', 'date_start', 'date_end', 'description', 'questions')
+
+# ------ END (ADMIN: Добавление и редактирование ответов, вопросов, опросов) -------
+
+
+# --------------------------------------------------------------
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -25,29 +77,67 @@ class AnswerListSerializer(serializers.ModelSerializer):
         fields = ('id', 'answer')
 
 
-# class QuestionsListSerializer(WritableNestedModelSerializer):
-class QuestionsListSerializer(serializers.ModelSerializer):
-    # answers = serializers.StringRelatedField(many=True, read_only=False)
+# ------------- END (Простые для формирования связанных)  -------------
+
+
+# -------------  SECTION FOR SURVEY  -----------------
+class SurveyListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Survey
+        fields = ('id', 'name', 'date_start', 'date_end', 'description')
+
+
+class QuestionsSurveySerializer(WritableNestedModelSerializer):
     answers = AnswerListSerializer(many=True)
 
     class Meta:
         model = Question
-        fields = ('question_text', 'type_answer', 'answers')
+        # fields = ('id', 'question_text',)
+        # fields = ('question_text', 'answers')
+        fields = ('id', 'question_text', 'type_answer', 'answers')
 
 
-# class SurveySerializer(WritableNestedModelSerializer):
-class SurveySerializer(serializers.ModelSerializer):
-    # answer = AnswerListSerializer(many=True, read_only=False)
-    questions = QuestionsListSerializer(many=True)
+class SurveyDetailSerializer(WritableNestedModelSerializer):
+# class SurveyDetailSerializer(serializers.ModelSerializer):
+    # answers = AnswerListSerializer(many=True, read_only=False)
+    # questions = serializers.SlugRelatedField(slug_field='answers', read_only=True, many=True)
+    # questions = QuestionsSurveySerializer(many=True, read_only=True)
+    questions = QuestionsSurveySerializer(many=True)
 
     class Meta:
         model = Survey
-        fields = ('id', 'name', 'date_start', 'date_end', 'description', 'questions',)
+        fields = ('questions',)
+# -------------  END (SECTION FOR SURVEY)  -----------------
+
+
+# ----- Раздел для формирования вопросов конкретного опроса для пользователя -----
+class QuestionsListSerializer(serializers.ModelSerializer):
+    answers = AnswerListSerializer(many=True)
+
+    class Meta:
+        model = Question
+        # fields = ('id', 'question_text',)
+        # fields = ('question_text', 'answers')
+        fields = ('question_text', 'type_answer', 'answers')
+
+
+class SurveyQuestionsSerializer(serializers.ModelSerializer):
+    questions = QuestionsListSerializer(many=True, read_only=True)
+    user = serializers.ReadOnlyField(source='user.name')
+    user_id = serializers.ReadOnlyField(source='user.id')
+
+    class Meta:
+        # model = Survey
+        model = UserAnswer
+        fields = ('user', 'user_id', 'questions', )
+        # fields = ('id', 'name', 'date_start', 'date_end', 'description', 'questions',)
+
+# ----- END (Раздел для формирования вопросов конкретного опроса для пользователя) -----
 
 
 class UserAnswerSerializer(WritableNestedModelSerializer):
     user = UserSerializer(allow_null=True)
-    survey = SurveySerializer(allow_null=True)
+    survey = SurveyDetailSerializer(allow_null=True)
     question = QuestionsListSerializer(allow_null=True)
     answer = AnswerListSerializer(many=True)
 
@@ -62,6 +152,85 @@ class UserAnswerSerializer(WritableNestedModelSerializer):
         data['question'] = obj.answer.username
         # data['upvoted_by'] = instance.upvote_by.all().values_list('username', flat=True)
         return data
+
+
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------
+    # fields = ('id', 'url', 'name', 'date_start', 'date_end', 'description',)
+    # fields = ('id', 'name', 'date_start', 'date_end', 'description', 'questions')
+
+    # def to_representation(self, instance):
+    #     print(f"+++++++ 1 +++ {instance.__dict__}")
+    #     data = super(SurveySerializer, self).to_representation(instance)
+    #     print(f"+++++++ 2 DATA +++ {data}")
+    #
+    #     # data.update(...)
+    #
+    #     return data
+
+        # return self.data
+    # def get_questions(self, instance):
+    #     list_question_text = []
+    #     print(f'aaaaaaaaaaaa----2222---------- {self.__dir__()}')
+    #     for i in instance.questions.all():
+    #         print(f'aaaaaaaaaaaa-------------- {i.question_text}')
+    #         list_question_text.append(i.question_text)
+    #     return list_question_text
+
+    # def to_representation(self, instance):
+    #     print(f"---represent INST: {instance.__dir__()}")
+    #     print(f"---represent: {self.action}")
+# ----------------------------------------------------------------------
+    # questions = serializers.SlugRelatedField(slug_field='answers', read_only=True, many=True)
+    # questions = serializers.HyperlinkedRelatedField(many=True, read_only=True, view_name='question-detail')
+    # questions = serializers.SerializerMethodField()
+# ----------------------------------------------------------------------
+# Убрать реализовано выше в QuestionSerializer  в to_internal_value()
+# class QuestionToListAnswerSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Question
+#         fields = ('id', 'question_text', 'type_answer', 'answers')
+#
+#     # def create(self, validated_data):
+#     # def to_internal_value(self, data):
+#     #     print(f"====1===:  {self.__dict__}")
+#     #     print(f"====2===:  {data['answers']}")
+#     #     isinstance(data["answers"][0], int)
+#     #     if isinstance(data["answers"][0], int):
+#     #         print(f"====3===:  {data['answers']}")
+#     #
+#     #     return data
+#
+#
+#     # def to_representation(self, instance):
+#     #     print(f"===1===: {instance.__dict__}")
+#     #     print(f"===1===: {self.__dict__}")
+#     #     # return self, instance
+
+# ----------------------------------------------------------------------
+    # type_answer = serializers.CharField(source='get_type_answer_display', read_only=True)
+    # answers = serializers.StringRelatedField(many=True, read_only=False)
+
+
+# class QuestionsListSerializer(WritableNestedModelSerializer):
+    # answer = AnswerListSerializer(many=True, read_only=False)
+# ----------------------------------------------------------------------
+# class SurvSerializer(serializers.ModelSerializer):
+#     answers = AnswerListSerializer(many=True, read_only=False)
+#     # answers = serializers.SlugRelatedField(slug_field='answer', read_only=True, many=True)
+#     user = UserSerializer()
+#
+#     class Meta:
+#         # model = Question
+#         model = UserAnswer
+#         # fields = ('user', 'question_text', 'type_answer', 'answers')
+#         fields = ('user', 'survey', 'question', 'answers')
+#
+    # def create(self, validated_data):
+    #     print(f"===1: {self.answers}")
+    #     print(f"===2: {validated_data}")
+    #     return self
 
     # ------------------------------------------------------------
 # class SurveyDetailSerializer(serializers.ModelSerializer):
