@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api.apps.ApiConfig',
-    'my_test.apps.MyTestConfig',  # for my test
+    # 'my_test.apps.MyTestConfig',  # for my test
     'debug_toolbar',
     'drf_yasg2',
     'rest_framework_swagger',
