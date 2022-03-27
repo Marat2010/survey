@@ -19,7 +19,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('__debug__/', include(debug_toolbar.urls)),
 
-    path('mytest/', include('my_test.urls')),  # For my test
+    # path('mytest/', include('my_test.urls')),  # For my test
 
 ]
 
