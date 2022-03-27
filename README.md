@@ -38,6 +38,8 @@ Login API-Admin: http://localhost:8000/api/v1/api-auth/login/
 
 Админ Django: http://localhost:8000/admin/
 
+Swagger, Redoc: http://localhost:8000/swagger/ , http://localhost:8000/redoc/
+
 Доступ к Adminer БД порт `"9000"`: http://localhost:9000/
 
 -------------------------------------------
