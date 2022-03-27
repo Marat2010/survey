@@ -26,15 +26,16 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
-# DEBUG = False
 DEBUG = os.getenv('DEBUG')
 
 ALLOWED_HOSTS = ['*']
 
 # Application definition
 
+
 INSTALLED_APPS = [
     'django.contrib.admin',
+    # 'related_admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -42,13 +43,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api.apps.ApiConfig',
-    # 'drf-yasg',
-    # 'drf_yasg2',
+    # 'my_test.apps.MyTestConfig',  # for my test
+    'debug_toolbar',
+    'drf_yasg2',
     'rest_framework_swagger',
     'corsheaders',
     'djoser'
 ]
-
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -59,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'survey.urls'
@@ -83,15 +85,6 @@ WSGI_APPLICATION = 'survey.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#     }
-# }
-
-# ---------------------------------------
 
 DATABASES = {
     "default": {
@@ -137,10 +130,6 @@ REST_FRAMEWORK = {
     # 'PAGE_SIZE': 100
 }
 
-# LOGIN_REDIRECT_URL = 'api:login'
-# LOGIN_REDIRECT_URL = 'index:api.index'
-# LOGIN_REDIRECT_URL = 'api/v1/admin/question/'
-# LOGIN_REDIRECT_URL = '../../api-admin/'
 LOGIN_REDIRECT_URL = '/api/v1/api-admin/'
 
 # Internationalization
@@ -162,8 +151,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-STATIC_ROOT = '/static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+# STATIC_ROOT = '/static'
 STATIC_URL = '/static/'
 
 CORS_ORIGIN_WHITELIST = [
@@ -173,8 +162,27 @@ CORS_ORIGIN_WHITELIST = [
     "http://127.0.0.1:8888"
 ]
 
+INTERNAL_IPS = [
+    'localhost',
+    '127.0.0.1',
+]
+
 
 # -------------------------------------------------
+# -------------------------------------------------
+# -------------------------------------------------
+# -------------------------------------------------
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#     }
+# }
+# -------------------------------------------------
+# LOGIN_REDIRECT_URL = 'api:login'
+# LOGIN_REDIRECT_URL = 'index:api.index'
+# LOGIN_REDIRECT_URL = 'api/v1/admin/question/'
+# LOGIN_REDIRECT_URL = '../../api-admin/'
 # ---------------------------------------
 
 # DATABASES = {

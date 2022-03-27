@@ -8,17 +8,18 @@ from django.dispatch import receiver
 
 
 class Survey(models.Model):
-    name = models.CharField(max_length=50, verbose_name='Название опроса')
+    name = models.CharField(max_length=50, db_index=True, verbose_name='Название опроса')
     date_start = models.DateTimeField(db_index=True, verbose_name='Дата старта опроса')
     date_end = models.DateTimeField(db_index=True, default=None, verbose_name='Дата окончания опроса')
-    description = models.TextField(default=None, verbose_name='Описание опроса')
+    description = models.CharField(max_length=500, default=None, verbose_name='Описание опроса')
+    # description = models.TextField(default=None, verbose_name='Описание опроса')
     questions = models.ManyToManyField('Question', related_name='surveys', verbose_name='Вопросы')
 
     def __str__(self):
         return f"{str(self.pk)}: {self.name}"
 
-    def get_questions(self):
-        return ';  '.join(['{} '.format(str(question.question_text)) for question in self.questions.all()])
+    # def get_questions(self):
+    #     return ';  '.join(['{} '.format(str(question.question_text)) for question in self.questions.all()])
 
     class Meta:
         verbose_name_plural = 'Опросы'
@@ -32,7 +33,8 @@ class Question(models.Model):
         ('1', 'Выбор одного ответа'),
         ('2', 'Выбор нескольких ответов'),
     ]
-    question_text = models.TextField(default=None, verbose_name='Текст вопроса')
+    question_text = models.CharField(max_length=500, default=None, db_index=True, verbose_name='Текст вопроса')
+    # question_text = models.TextField(default=None, db_index=True, verbose_name='Текст вопроса')
     type_answer = models.CharField(choices=TYPE_ANSWER, default='0', max_length=1, verbose_name='Тип ответа')
     answers = models.ManyToManyField('Answer', blank=True, default=None, related_name='questions', verbose_name='Ответы')
     # answers = models.ManyToManyField('Answer', default=None, related_name='questions', verbose_name='Ответы')
@@ -45,8 +47,8 @@ class Question(models.Model):
         verbose_name = 'Вопрос'
         ordering = ['pk']
 
-    def get_answers(self):
-        return ['{}'.format(str(answer.answer)) for answer in self.answers.all()]
+    # def get_answers(self):
+    #     return ['{}'.format(str(answer.answer)) for answer in self.answers.all()]
 
 
 # ------------------------------------------------------------------------
@@ -68,7 +70,9 @@ class Question(models.Model):
 
 
 class Answer(models.Model):
-    answer = models.TextField(verbose_name='Ответ')
+    """ Все возможные ответы, включая ответы пользователей """
+    answer = models.CharField(max_length=500, verbose_name='Ответ', db_index=True)
+    # answer = models.TextField(verbose_name='Ответ', db_index=True)
     # answer = models.TextField(default=None, verbose_name='Ответ')
 
     def __str__(self):
@@ -105,8 +109,30 @@ class UserAnswer(models.Model):
         verbose_name = 'Ответ Пользователя'
         ordering = ['pk']
 
-    def get_answers(self):
-        return ['{}'.format(str(i.answer)) for i in self.answer.all()]
+    # def get_answers(self):
+    #     return ['{}'.format(str(i.answer)) for i in self.answer.all()]
+
+
+# # ------------ Ответы на опросы -------------------------------------
+# class SurveyAnswer(models.Model):
+#     user = models.ForeignKey(User, related_name='survey_answers', on_delete=models.CASCADE, verbose_name='ID Пользователя')
+#     survey = models.ForeignKey(Survey, related_name='survey_answers', on_delete=models.PROTECT, verbose_name='Опросник')
+#     questions = models.ManyToManyField('Question', related_name='survey_answers', verbose_name='Вопросы')
+#     answer = models.ManyToManyField(Answer, related_name='survey_answers', verbose_name='Ответы')
+#
+#     def __str__(self):
+#         return f"{str(self.pk)}: {self.user}:{self.survey_id}"
+#
+#     class Meta:
+#         verbose_name_plural = 'Ответы на опрос'
+#         verbose_name = 'Ответ на опрос'
+#         ordering = ['pk']
+#
+#
+#     # answer = models.ForeignKey(Answer, related_name='survey_answers', verbose_name='Ответы')
+#     # question = models.ForeignKey(Question, related_name='survey_answers', on_delete=models.PROTECT, verbose_name='Вопрос')
+# # ------------ END Ответы на опросы -------------------------------------
+
 
 
 # --------------------------------------------

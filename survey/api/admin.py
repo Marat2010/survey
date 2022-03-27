@@ -6,22 +6,36 @@ from .models import Survey, Question, Answer, User, UserAnswer
 
 class SurveyAdmin(admin.ModelAdmin):
     list_display = ('pk', 'name', 'date_start', 'date_end', 'description', 'get_questions')
-    list_display_links = ('name', 'description')
+    list_display_links = ('pk', 'name', 'description',)
     search_fields = ('name', 'date_start', 'date_end', 'description')
+    list_filter = ('date_start', 'date_end',)
+    # readonly_fields = ('date_start', 'date_end',)
+
+    def get_questions(self, obj):
+        questions = ';\n'.join([question.question_text for question in obj.questions.all()])
+        return questions
+    get_questions.short_description = "Вопросы"
 
 
 class QuestionAdmin(admin.ModelAdmin):
-    # list_display = ('question_text', 'type_question', 'surveys', 'answers')
-    # list_display = ('pk', 'question_text', 'type_question', 'get_answers')
     list_display = ('pk', 'question_text', 'type_answer', 'get_answers')
-    list_display_links = ('pk', 'question_text', 'type_answer')
+    list_display_links = ('pk', 'question_text',)
     search_fields = ('pk', 'question_text', 'type_answer')
+    list_filter = ('type_answer', 'question_text')
+    list_editable = ('type_answer',)
+    list_per_page = 20
+
+    def get_answers(self, obj):
+        answers = '; '.join([answer.answer for answer in obj.answers.all()])
+        return answers
+    get_answers.short_description = "Ответы"
 
 
 class AnswerAdmin(admin.ModelAdmin):
     list_display = ('pk', 'answer',)
     list_display_links = ('pk', 'answer',)
     search_fields = ('answer',)
+    list_per_page = 20
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -32,9 +46,31 @@ class UserAdmin(admin.ModelAdmin):
 
 class UserAnswerAdmin(admin.ModelAdmin):
     list_display = ('pk', 'user', 'survey', 'question', 'get_answers')
-    # list_display = ('pk', 'user', 'survey', 'question', 'answer')
-    list_display_links = ('pk', 'survey', 'question')
+    list_display_links = ('survey', 'question')
     search_fields = ('pk', 'user', 'survey', 'question')
+    list_filter = ('survey', 'user')
+
+    def get_answers(self, obj):
+        answers = '; '.join([answer.answer for answer in obj.answer.all()])
+        return answers
+    get_answers.short_description = "Ответы"
+
+
+# class SurveyAnswerAdmin(admin.ModelAdmin):
+#     list_display = ('pk', 'user', 'survey', 'get_questions', 'get_answers')
+#     list_display_links = ('survey',)
+#     search_fields = ('pk', 'user', 'survey',)
+#     list_filter = ('survey', 'user')
+#
+#     def get_questions(self, obj):
+#         questions = '; '.join([question.question_text for question in obj.questions.all()])
+#         return questions
+#     get_questions.short_description = "Вопросы"
+#
+#     def get_answers(self, obj):
+#         answers = '; '.join([answer.answer for answer in obj.answer.all()])
+#         return answers
+#     get_answers.short_description = "Ответы"
 
 
 admin.site.register(Survey, SurveyAdmin)
@@ -43,14 +79,17 @@ admin.site.register(Answer, AnswerAdmin)
 admin.site.register(User, UserAdmin)
 admin.site.register(UserAnswer, UserAnswerAdmin)
 
+# admin.site.register(SurveyAnswer, SurveyAnswerAdmin)
+
 # @staticmethod
 # def get_answers(obj):
 #     # return ";\n".join([p.answer for p in obj.answers.all()])
 #     return [p.answer for p in obj.answers.all()]
 
 # -----------------------------------------------------------
-
-    # def save_related(self, request, form, formsets, change):
+# list_filter = ('pk', 'user', 'survey')
+# list_display = ('pk', 'user', 'survey', 'question', 'answer')
+# def save_related(self, request, form, formsets, change):
     #     super(QuestionAdmin, self).save_related(request, form, formsets, change)
     #     # count_answer = len(form.instance.get_answers())
     #     count_answer = form.instance.answers

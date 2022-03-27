@@ -1,19 +1,25 @@
+# import json
+
 from django.shortcuts import render
-from django.http import HttpResponse
 from rest_framework import generics
+from django.http import HttpResponse
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication, BasicAuthentication, SessionAuthentication
-from .serializers import SurveySerializer, QuestionSerializer, AnswerSerializer, UserAnswerSerializer,\
-    SurveyListSerializer, SurveyDetailSerializer, QuestionsListSerializer, UserAnswerDetailSerializer
+from rest_framework.utils import json
+
 from .models import Survey, Question, Answer, User, UserAnswer
 from django.utils import timezone
 # from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.exceptions import APIException, ParseError, NotFound
+from rest_framework.decorators import action
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.response import Response
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from .serializers import AnswerSerializer, QuestionSerializer,\
+    SurveySerializer, SurveyRetrieveSerializer, SurveyListSerializer, UserAnswerSerializer,\
+    SurveyDetailSerializer, SurveyQuestionsSerializer, \
+    AnswerListSerializer
 from .utils import check_user_session, check_answers
 MY_HOST = "http://localhost:8000"  # for index and doc_api in docker
 
@@ -29,112 +35,304 @@ def doc_api(request):
     return render(request, 'api/doc_api.html', {"host": MY_HOST})
 
 
-# -------------- Admin section --------------------------------------
-
+# -------- ADMIN: Добавление и редактирование ответов, вопросов, опросов --------
 class AnswerViewSet(ModelViewSet):
-    """ Displaying a list of all answer for admin"""
+    """ For the administrator - viewing, adding and editing answers. """
     queryset = Answer.objects.all()
     serializer_class = AnswerSerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = (IsAuthenticated,)
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
 
 
 class QuestionViewSet(ModelViewSet):
-    """ Displaying a list of all question for admin"""
+    """ For the administrator - viewing, adding and editing questions."""
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = (IsAuthenticated,)
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
 
 
 class SurveyViewSet(ModelViewSet):
-    """ Displaying a list of all surveys for admin"""
+    """ For the administrator - viewing, adding and editing surveys."""
     queryset = Survey.objects.all()
     serializer_class = SurveySerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = (IsAuthenticated,)
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            if self.action == 'list':
+                return SurveySerializer  # Сериализатор для списков
+            return SurveyRetrieveSerializer  # Сериализатор для отдельной записи
+            # return SurveySerializer  # Сериализатор для отдельной записи
+        return SurveySerializer  # Сериализатор обновления/создания записей
+
+# ------------------------------------------------
+#     def retrieve(self, request, *args, **kwargs):
+#         # do your customization here
+#         instance = self.get_object()
+#         serializer = self.get_serializer(instance)
+#         # data = serializer.data['questions']
+#         # print(f"+++++++ RETRIVE +++ {data}")
+#         questions = instance.questions.all()
+#         print(f"=== questions === {questions}")
+#         data = []
+#         for i in questions:
+#             print(f"------ i: {i.pk}: {i.question_text}")
+#             data.append({"id": i.pk, "question_text": i.question_text})
+#         print(f"=== data === {data}")
+#         # ret['WeatherForecastLongTermTimePeriods'] = json.loads(ret['WeatherForecastLongTermTimePeriods'])
+#         data_json = json.loads(data)
+#
+#         data_json = json.loads(questions)
+#
+#         serializer.data['questions'] = data_json
+#         print(f"=== serializer.data === {serializer.data}")
+#         # print(f"=== serializer.fields === {serializer.fields.fields['questions']}")
+#
+#         return Response(serializer.data)
+# ----------------------------------------------------
+    # json_obj = json.loads(model.json_text)
+    # data = serializer.data
+    # data["field"] = json_obj
+    # return Response(data)
+# -------------------------------------------------------
+    # def list(self, request, *args, **kwargs):
+    #     print(f"==========LIST: {kwargs}")
+    #     serializer = self.serializer_class
+    #     result_set = serializer.data
+    #     return Response(result_set)
+# ------ END (ADMIN: Добавление и редактирование ответов, вопросов, опросов) -------
 
 
-class UserAnswerViewSet(ModelViewSet):
-    """ Displaying a list User answers for admin"""
-    queryset = UserAnswer.objects.all()
-    serializer_class = UserAnswerSerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-
-# -------------- User section --------------------------------------
+# -------------  ADMIN: SECTION FOR SURVEY  -----------------
 class SurveyListView(generics.ListAPIView):
-    """ Displaying a list of active surveys"""
     serializer_class = SurveyListSerializer
-    # queryset = Survey.objects.filter(date_end__gte=timezone.now())
-
-    def get_queryset(self):  # Фильтрация в адр.строке (?name=...&date_end=...)
-        # queryset = Survey.objects.all()
-        queryset = Survey.objects.filter(date_end__gte=timezone.now())
-
-        params = self.request.query_params
-        # print(f"====get params: {params}")
-        name = params.get('name', None)
-        date_start = params.get('date_start', None)
-        date_end = params.get('date_end', None)
-
-        if name:
-            queryset = queryset.filter(name__contains=name)
-        if date_start:
-            queryset = queryset.filter(date_start__gte=date_end)
-        if date_end:
-            queryset = queryset.filter(date_end__gte=date_end)
-
-        return queryset
+    queryset = Survey.objects.filter(date_end__gte=timezone.now())
 
 
 class SurveyDetailView(generics.RetrieveUpdateAPIView):
-    """ Displaying detail of survey"""
-    serializer_class = QuestionsListSerializer
+    serializer_class = SurveyDetailSerializer
+    queryset = Survey.objects.filter(date_end__gte=timezone.now())
+# -------------  END (ADMIN: SECTION FOR SURVEY)  -----------------
+
+
+class SurveyQuestionsView(generics.RetrieveUpdateAPIView):
+    serializer_class = SurveyQuestionsSerializer
     queryset = Survey.objects.filter(date_end__gte=timezone.now())
 
-    def get(self, request, *args, **kwargs):
-        queryset = Survey.objects.get(pk=kwargs['pk']).questions.all()
-        print(f"++++ {queryset} ++++ {check_user_session(request)} +++ {request.user}")
-        serializer = QuestionsListSerializer(queryset, many=True)
-        print(f"===serialiser data ==== {serializer.data}")
-        return Response(serializer.data)
+    # def update(self, request, *args, **kwargs):
+    #     pass
 
-    def put(self, request, *args, **kwargs):
-        data = request.data
-        print(f"===--data--------1: {data}")
-        user_answers_pk = []
-        for q_a in data:
-            user = User.objects.get(pk=check_user_session(request))
-            survey = Survey.objects.get(pk=kwargs['pk'])
-            question = Question.objects.get(pk=q_a['id'])
-            answers = q_a['answers']
-            type_answer = q_a['type_answer']
-            answer_obj = check_answers(answers, type_answer)
+    def perform_update(self, serializer):
+        user = self.request.user
+        print(f'========USER: {user}')
+        # serializer.save(user=self.request.user)
 
-            # user_answer = UserAnswer.objects.get(user=user, survey=survey, question=question)
-            user_answer, _ = UserAnswer.objects.get_or_create(user=user, survey=survey, question=question)
-            # user_answer, _ = UserAnswer.objects.create(user=user, survey=survey, question=question)
-            # user_answer, _ = UserAnswer.objects.update_or_create(user=user, survey=survey, question=question)
-                                                                 # defaults={'question': question})
-            print(f"==== user_answer ===: {user_answer}")
-            user_answers_pk.append(user_answer.pk)
-            for obj in answer_obj:
-                print(f"==== obj====: {obj}")
-                # user_answer.answer.add(obj)
-            user_answer.answer.set(answer_obj)
 
-        print(f"----user_answers_pk---{user_answers_pk}")
-        queryset_answers = UserAnswer.objects.filter(pk__in=user_answers_pk)
-        print(f"----queryset_answers---{queryset_answers}")
 
-        # serializer = QuestionsListSerializer(data)
-        serializer = UserAnswerDetailSerializer(queryset_answers, many=True)
+# --------------------------------------------------------------------
+# class SurveyQuestionsListView(generics.ListAPIView):
+#     serializer_class = SurveyQuestionsSerializer
+#     queryset = Survey.objects.filter(date_end__gte=timezone.now())
 
-        print(f"___data__:{data}")
-        # print(f"___ser data__:{serializer.data}")
-        return Response(serializer.data)
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# class QuestionToListAnswerView(generics.ListCreateAPIView):
+# class QuestionToListAnswerViewSet(ModelViewSet):
+#     """ For the administrator - viewing, adding and editing questions."""
+#     queryset = Question.objects.all()
+#     serializer_class = QuestionToListAnswerSerializer
+#
+#     # def get_serializer_context(self):
+#     #     # if self.request.user.is_staff:
+#     #     #     return QuestionSerializer
+#     #     print(f"====1===:  {self.request.__dict__}")
+#     #     return QuestionToListAnswerSerializer
+#
+#     # def perform_update(self, serializer):
+#     # def perform_create(self, serializer):
+#     #     print(f"====1===:  {self.request.__dict__}")
+#     #     print(f"====2===:  {serializer.__dict__}")
+
+# # ------- Добавление и редактирование ответов и вопросов (Без ViewSet) -----------
+# # class AnswerListView(generics.ListAPIView):
+# class AnswerListView(generics.ListCreateAPIView):
+#     serializer_class = AnswerSerializer
+#     queryset = Answer.objects.all()
+#
+#
+# # class AnswerDetailView(generics.RetrieveUpdateAPIView):
+# class AnswerDetailView(generics.RetrieveUpdateDestroyAPIView):
+#     serializer_class = AnswerSerializer
+#     queryset = Answer.objects.all()
+# # ----- END (Добавление и редактирование ответов и вопросов (Без ViewSet)) --------
+
+
+# ---------------------------------------------------------
+    # def list(self, request, *args, **kwargs):
+    #     serializer = SurveyListSerializer(self.queryset, many=True)
+    #     return Response(serializer.data)
+# class SurveyDetailView(generics.ListCreateAPIView):
+    # serializer_class = SurveyDetailSerializer
+    # queryset = Survey.objects.get(pk=1)
+    # serializer_class = UserAnswerSerializer
+
+# ---------------------------------------------------------
+# ---------------------------------------------------------
+    # def get_queryset(self):
+    #     questions = get_object_or_404(Survey, pk=self.kwargs['pk'])
+    #     print(f'====1===: {self.queryset}')
+    #     print(f'====2===: {questions}')
+    #     print(f'====3===: {questions.__dict__}')
+    #     questions = Survey.objects.questions
+    #     return questions
+
+
+# # class SurvDetailView(generics.RetrieveUpdateAPIView):
+# class SurvDetailView(generics.ListCreateAPIView):
+#     serializer_class = SurvSerializer
+#     # queryset = Survey.objects.filter(date_end__gte=timezone.now())
+#     queryset = Survey.objects.get(pk=2).questions.all()
+
+    # def create(self, request, *args, **kwargs):
+    #     print(f"==V=1: {self.__dir__()}")
+    #     print(f"==V=1.2: {self.get_serializer_context()}")
+    #     print(f"==V=1.3: {self.request.POST.__dir__()}")
+    #     for i in self.get_queryset():
+    #         print(f"----Q---: {i.answers.all()}")
+    #
+    #     print(f"==V=2: {self.request.query_params}")
+    #     print(f"==V=3: {request.data}")
+    #     for q in request.data:
+    #         print(f"-------: {q['question_text']}")
+    #         print(f"-------: {q['answers']}")
+    #         print(f"-------: {q['answers']}")
+    #     return self
+
+    # def perform_create(self, serializer):
+    #     print(f"++++: {serializer.__dict__}")
+    #     # serializer.save(ip=get_client_ip(self.request))
+
+
+# ------------- END SECTION FOR SURVEY -----------------
+
+
+
+# # -------------- Admin section --------------------------------------
+#
+# class AnswerViewSet(ModelViewSet):
+#     """ Displaying a list of all answer for admin"""
+#     queryset = Answer.objects.all()
+#     serializer_class = AnswerSerializer
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
+#
+#
+# class QuestionViewSet(ModelViewSet):
+#     """ Displaying a list of all question for admin"""
+#     queryset = Question.objects.all()
+#     serializer_class = QuestionSerializer
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
+#
+#
+# class SurveyViewSet(ModelViewSet):
+#     """ Displaying a list of all surveys for admin"""
+#     queryset = Survey.objects.all()
+#     serializer_class = SurveySerializer
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
+#
+#
+# class UserAnswerViewSet(ModelViewSet):
+#     """ Displaying a list User answers for admin"""
+#     queryset = UserAnswer.objects.all()
+#     serializer_class = UserAnswerSerializer
+#     authentication_classes = [SessionAuthentication, BasicAuthentication]
+#     permission_classes = (IsAuthenticated,)
+#
+# # -------------- Admin section --------------------------------------
+
+
+# -------------- User section --------------------------------------
+# # -------------- User section --------------------------------------
+# class SurveyListView(generics.ListAPIView):
+#     """ Displaying a list of active surveys"""
+#     serializer_class = SurveyListSerializer
+#     # queryset = Survey.objects.filter(date_end__gte=timezone.now())
+#
+#     def get_queryset(self):  # Фильтрация в адр.строке (?name=...&date_end=...)
+#         # queryset = Survey.objects.all()
+#         queryset = Survey.objects.filter(date_end__gte=timezone.now())
+#
+#         params = self.request.query_params
+#         # print(f"====get params: {params}")
+#         name = params.get('name', None)
+#         date_start = params.get('date_start', None)
+#         date_end = params.get('date_end', None)
+#
+#         if name:
+#             queryset = queryset.filter(name__contains=name)
+#         if date_start:
+#             queryset = queryset.filter(date_start__gte=date_end)
+#         if date_end:
+#             queryset = queryset.filter(date_end__gte=date_end)
+#
+#         return queryset
+#
+#
+# class SurveyDetailView(generics.RetrieveUpdateAPIView):
+#     """ Displaying detail of survey"""
+#     serializer_class = QuestionsListSerializer
+#     queryset = Survey.objects.filter(date_end__gte=timezone.now())
+#
+#     def get(self, request, *args, **kwargs):
+#         queryset = Survey.objects.get(pk=kwargs['pk']).questions.all()
+#         print(f"++++ {queryset} ++++ {check_user_session(request)} +++ {request.user}")
+#         serializer = QuestionsListSerializer(queryset, many=True)
+#         print(f"===serialiser data ==== {serializer.data}")
+#         return Response(serializer.data)
+#
+#     def put(self, request, *args, **kwargs):
+#         data = request.data
+#         print(f"===--data--------1: {data}")
+#         user_answers_pk = []
+#         for q_a in data:
+#             user = User.objects.get(pk=check_user_session(request))
+#             survey = Survey.objects.get(pk=kwargs['pk'])
+#             question = Question.objects.get(pk=q_a['id'])
+#             answers = q_a['answers']
+#             type_answer = q_a['type_answer']
+#             answer_obj = check_answers(answers, type_answer)
+#
+#             # user_answer = UserAnswer.objects.get(user=user, survey=survey, question=question)
+#             user_answer, _ = UserAnswer.objects.get_or_create(user=user, survey=survey, question=question)
+#             # user_answer, _ = UserAnswer.objects.create(user=user, survey=survey, question=question)
+#             # user_answer, _ = UserAnswer.objects.update_or_create(user=user, survey=survey, question=question)
+#                                                                  # defaults={'question': question})
+#             print(f"==== user_answer ===: {user_answer}")
+#             user_answers_pk.append(user_answer.pk)
+#             for obj in answer_obj:
+#                 print(f"==== obj====: {obj}")
+#                 # user_answer.answer.add(obj)
+#             user_answer.answer.set(answer_obj)
+#
+#         print(f"----user_answers_pk---{user_answers_pk}")
+#         queryset_answers = UserAnswer.objects.filter(pk__in=user_answers_pk)
+#         print(f"----queryset_answers---{queryset_answers}")
+#
+#         # serializer = QuestionsListSerializer(data)
+#         serializer = UserAnswerDetailSerializer(queryset_answers, many=True)
+#
+#         print(f"___data__:{data}")
+#         # print(f"___ser data__:{serializer.data}")
+#         return Response(serializer.data)
+#
+# # -------------- User section END-----------------------------------
+# # -------------- User section END-----------------------------------
 
 
 # ----------------------------------------------------------
@@ -143,7 +341,8 @@ class SurveyDetailView(generics.RetrieveUpdateAPIView):
 # ----------------------------------------------------------
         # queryset = self.get_queryset()
         # print(f"===Get queryset: {queryset}")
-
+        # queryset = Survey.objects.get(pk=kwargs['pk']).questions.all().select_related()
+        # queryset = Survey.objects.get(pk=kwargs['pk']).questions.all().prefetch_related()
 # ----------------------------------------------------------
             # user_answer.answer.set(answer)
             # print(f"====-----5: {user_answer.question} ==Answer=== {user_answer.answer}")
